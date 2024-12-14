@@ -1,27 +1,31 @@
+from flask import Flask, request, jsonify
 import whisper
-import os.path
+import os
 
-input_file = "Recording.m4a" # Load the Whisper model
-model = whisper.load_model("base")
+app = Flask(__name__)
+model = whisper.load_model('base')
 
-def transcribe_audio(input_file, output_file):
-    print("Transcribing", input_file)
-    print(os.path.exists(input_file))
-    # Transcribe the audio file
-    result = model.transcribe(input_file)
-    transcription = result['text']
+@app.route('/transcribe', methods=['POST'])
+def transcribe():
+    file = request.files['file']
+    filepath = file.filename
+    file.save(filepath)
     
-    # Save the transcription to a new text file
-    with open(output_file, "w") as file:
-        file.write(transcription)
+    try:
+        result = model.transcribe(filepath)
+        transcription = result['text']
+        os.remove(filepath)
+        
+        return jsonify({
+            'transcription': transcription
+        })
+        
+    except Exception as e:
+        if os.path.exists(filepath):
+            os.remove(filepath)
+        return jsonify({
+            'error': str(e)
+        }), 500
 
-
-
-if __name__ == "__main__":
-    # Specify the input audio file and output text file
-    input_audio_file = "Recording.m4a"  # Change this to your audio file path
-    output_text_file = "transcription.txt"  # Output file for the transcription
-    
-    # Call the transcription function
-    transcribe_audio(input_audio_file, output_text_file)
-    print("Transcription completed and saved to", output_text_file)
+if __name__ == '__main__':
+    app.run(debug=True)
